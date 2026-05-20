@@ -1,0 +1,35 @@
+# Secrets
+.env
+.env.monitoring
+radicale/data/htpasswd
+secrets/*.txt
+monitoring/zabbix/secrets/*.txt
+!monitoring/zabbix/secrets/.gitkeep
+
+# Model files (large binaries — download with scripts/download-model.sh)
+models/*.gguf
+models/*.bin
+models/*.safetensors
+models/whisper/
+
+# n8n local data (database, keys)
+n8n_data/
+
+# Radicale calendar data (preserve .gitkeep)
+radicale/data/*
+!radicale/data/.gitkeep
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TLS certs (self-signed test certs — regenerate with scripts)
+monitoring/caddy/certs/*.crt
+monitoring/caddy/certs/*.key
+monitoring/caddy/certs/*.pem
+AGENTS.md
+.opencode/state/

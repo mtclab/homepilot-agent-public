@@ -1,0 +1,243 @@
+x-n8n-common: &n8n-common
+  build:
+    context: ./docker/n8n
+    dockerfile: Dockerfile
+  env_file: .env
+  environment:
+    N8N_HOST: ${N8N_HOST:-localhost}
+    WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678/}
+    GENERIC_TIMEZONE: ${TZ:-Etc/UTC}
+    N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-}
+    N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_encryption_key
+    HP_MCP_URL: ${HP_MCP_URL}
+    HP_MCP_TOKEN: ${HP_MCP_TOKEN:-}
+    HP_MCP_TOKEN_FILE: /run/secrets/hp_mcp_token
+    HP_MCP_TOKEN_RW: ${HP_MCP_TOKEN_RW:-}
+    HP_MCP_TOKEN_RW_FILE: /run/secrets/hp_mcp_token_rw
+    MATRIX_HOMESERVER: ${MATRIX_HOMESERVER:-}
+    MATRIX_ROOM_ID: ${MATRIX_ROOM_ID:-}
+    TELEGRAM_ALLOWED_USER_ID: ${TELEGRAM_ALLOWED_USER_ID:-}
+  volumes:
+    - n8n_data:/home/node/.n8n
+  secrets:
+    - n8n_encryption_key
+    - hp_mcp_token
+    - hp_mcp_token_rw
+  healthcheck:
+    test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5678/healthz || exit 1"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 60s
+  restart: unless-stopped
+
+services:
+  llm:
+    profiles: ["gpu"]
+    image: ghcr.io/ggerganov/llama.cpp:server-cuda
+    runtime: nvidia
+    environment:
+      NVIDIA_VISIBLE_DEVICES: "0"
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      LLAMA_ARG_MODEL: /models/${GGUF_MODEL_FILENAME:-Qwen3-14B-Q8_0.gguf}
+      LLAMA_ARG_HOST: "0.0.0.0"
+      LLAMA_ARG_PORT: "8080"
+      LLAMA_ARG_GPU_LAYERS: "99"
+      LLAMA_ARG_CTX_SIZE: ${LLAMA_ARG_CTX_SIZE:-32768}
+      LLAMA_ARG_PARALLEL: ${LLAMA_ARG_PARALLEL:-4}
+    volumes:
+      - ./models:/models:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    restart: unless-stopped
+    networks:
+      - agent-net
+
+  llm-embed:
+    profiles: ["gpu"]
+    image: ghcr.io/ggerganov/llama.cpp:server-cuda
+    runtime: nvidia
+    environment:
+      LLAMA_ARG_MODEL: /models/bge-m3.gguf
+      LLAMA_ARG_HOST: "0.0.0.0"
+      LLAMA_ARG_PORT: "8081"
+      NVIDIA_VISIBLE_DEVICES: "1"
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    volumes:
+      - ./models:/models:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    restart: unless-stopped
+    networks:
+      - agent-net
+      - svc-net
+
+  n8n:
+    <<: *n8n-common
+    depends_on:
+      searxng:
+        condition: service_healthy
+      radicale:
+        condition: service_healthy
+    networks:
+      - agent-net
+      - svc-net
+
+  n8n-debug:
+    <<: *n8n-common
+    profiles: ["ports-debug"]
+    ports:
+      - "5678:5678"
+    depends_on:
+      searxng:
+        condition: service_healthy
+      radicale:
+        condition: service_healthy
+    networks:
+      - agent-net
+      - svc-net
+
+  searxng:
+    build:
+      context: ./docker/searxng
+      dockerfile: Dockerfile
+    volumes:
+      - ./searxng:/etc/searxng:ro
+    environment:
+      SEARXNG_SECRET_KEY: ${SEARXNG_SECRET_KEY:-}
+      SEARXNG_SECRET_KEY_FILE: /run/secrets/searxng_secret_key
+    secrets:
+      - searxng_secret_key
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - svc-net
+
+  radicale:
+    image: tomsquest/docker-radicale:3.3.2.0
+    volumes:
+      - ./radicale/config:/config/config:ro
+      - radicale_data:/data
+    secrets:
+      - radicale_htpasswd
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5232/.well-known/caldav/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - svc-net
+
+  whisper:
+    image: fedirz/faster-whisper-server:latest-cpu
+    environment:
+      - WHISPER__MODEL=base
+      - WHISPER__COMPUTE_TYPE=int8
+      - WHISPER__DEVICE=cpu
+    volumes:
+      - whisper-models:/root/.config/faster-whisper-server
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+    networks:
+      - svc-net
+
+  piper:
+    build:
+      context: ./docker/piper
+      dockerfile: Dockerfile
+    environment:
+      - PIPER_VOICE=en_US-lessac-medium
+      - PIPER_LENGTH_SCALE=1.0
+      - PIPER_NOISE_SCALE=0.667
+      - PIPER_NOISE_W=0.333
+    volumes:
+      - piper-voices:/data
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/')\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - svc-net
+
+  # Debug variants — expose internal services on host ports for testing
+  # Use: docker compose --profile ports-debug up
+  whisper-debug:
+    profiles: ["ports-debug"]
+    image: fedirz/faster-whisper-server:latest-cpu
+    environment:
+      - WHISPER__MODEL=base
+      - WHISPER__COMPUTE_TYPE=int8
+      - WHISPER__DEVICE=cpu
+    volumes:
+      - whisper-models:/root/.config/faster-whisper-server
+    ports:
+      - "8082:8000"
+    restart: unless-stopped
+    networks:
+      - svc-net
+
+  piper-debug:
+    profiles: ["ports-debug"]
+    build:
+      context: ./docker/piper
+      dockerfile: Dockerfile
+    environment:
+      - PIPER_VOICE=en_US-lessac-medium
+      - PIPER_LENGTH_SCALE=1.0
+      - PIPER_NOISE_SCALE=0.667
+      - PIPER_NOISE_W=0.333
+    volumes:
+      - piper-voices:/data
+    ports:
+      - "8083:5000"
+    restart: unless-stopped
+    networks:
+      - svc-net
+
+networks:
+  agent-net:
+    driver: bridge
+  svc-net:
+    driver: bridge
+
+volumes:
+  llm-models:
+  n8n_data:
+  radicale_data:
+  whisper-models:
+  piper-voices:
+
+secrets:
+  n8n_encryption_key:
+    file: ./secrets/n8n_encryption_key.txt
+  hp_mcp_token:
+    file: ./secrets/hp_mcp_token.txt
+  hp_mcp_token_rw:
+    file: ./secrets/hp_mcp_token_rw.txt
+  searxng_secret_key:
+    file: ./secrets/searxng_secret_key.txt
+  radicale_htpasswd:
+    file: ./secrets/radicale_htpasswd.txt

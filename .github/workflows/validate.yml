@@ -1,0 +1,89 @@
+name: Validate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+      - name: Run shellcheck
+        run: shellcheck -S warning scripts/download-model.sh scripts/import-workflows.sh
+
+  validate-json:
+    name: JSON syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate n8n workflow JSONs
+        run: |
+          for f in n8n/workflows/*.json; do
+            python3 -c "import json,sys; json.load(open('$f'))" || { echo "FAIL: $f"; exit 1; }
+            echo "OK: $f"
+          done
+
+  validate-yaml:
+    name: YAML syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install yamllint
+        run: pip install yamllint
+      - name: Validate searxng/settings.yml
+        run: yamllint -d relaxed searxng/settings.yml
+
+  validate-compose:
+    name: docker compose config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create dummy .env
+        run: |
+          sed \
+            -e 's|<homelab-ip>|192.0.2.1|g' \
+            -e 's|<read-only token>|dummy-ro|g' \
+            -e 's|<read-write token>|dummy-rw|g' \
+            -e 's|http://<n8n-lan-ip>:5678/webhook/artifact-proposed|http://192.0.2.1:5678/webhook/artifact-proposed|g' \
+            -e 's|http://<public-or-lan-ip>:5678/|http://192.0.2.1:5678/|g' \
+            -e 's|<32-byte-hex>|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|g' \
+            -e 's|<n8n api key>|dummy|g' \
+            -e 's|<token from BotFather>|1234567890:dummy|g' \
+            -e 's|<your telegram user id>|123456789|g' \
+            -e 's|<strong password>|dummypw|g' \
+            -e 's|https://<your-homeserver>|https://matrix.example.com|g' \
+            -e 's|@bot:<homeserver>|@bot:matrix.example.com|g' \
+            -e 's|<token>|dummy-matrix-token|g' \
+            -e 's|!<room-id>:<homeserver>|!abc:matrix.example.com|g' \
+            .env.example > .env
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet
+
+  check-env-coverage:
+    name: .env.example covers all compose vars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check all compose variables are documented in .env.example
+        run: |
+          # Extract variable names referenced in docker-compose.yml
+          compose_vars=$(grep -oP '\$\{[A-Z0-9_]+' docker-compose.yml | sed 's/\${//' | sort -u)
+          missing=0
+          for var in $compose_vars; do
+            if ! grep -q "^${var}=" .env.example; then
+              echo "MISSING in .env.example: $var"
+              missing=$((missing + 1))
+            fi
+          done
+          if [ "$missing" -gt 0 ]; then
+            echo "$missing variable(s) referenced in docker-compose.yml not documented in .env.example"
+            exit 1
+          fi
+          echo "All compose variables are documented in .env.example"
