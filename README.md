@@ -198,6 +198,20 @@ Zabbix 7.0 is pre-configured with:
 - Ollama bridge uses socat; SSH tunnel is ephemeral — re-establish after restart
 - Zabbix MCP process needs restart after config changes (no hot-reload)
 
+## Screenshots
+
+### Agent Stack
+
+| n8n Workflows | Radicale Calendar | SearXNG Search |
+|---------------|-------------------|----------------|
+| ![n8n](docs/images/agent-n8n.png) | ![Radicale](docs/images/agent-radicale.png) | ![SearXNG](docs/images/agent-searxng.png) |
+
+### Zabbix Monitoring
+
+| Dashboard | Host Overview |
+|-----------|---------------|
+| ![Zabbix Dashboard](docs/images/zabbix-dashboard-final.png) | ![Zabbix Hosts](monitoring/zabbix/images/zabbix-installed.png) |
+
 ## GPU layout
 
 3× RTX 4000 Ada SFF (20GB VRAM each). Qwen3-14B Q8_0 requires ~15GB — runs on GPU 0 (`NVIDIA_VISIBLE_DEVICES=0`). BGE-M3 embeddings run on GPU 1 (`NVIDIA_VISIBLE_DEVICES=1`).
