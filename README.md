@@ -166,6 +166,38 @@ See [`docs/N8N-INTEGRATION.md`](docs/N8N-INTEGRATION.md) — notification flow, 
 
 See [`docs/voice-spike.md`](docs/voice-spike.md) — voice interface spike (Whisper + Piper).
 
+## Production Infrastructure
+
+### Infrastructure Hosts
+
+| Host | Role | zabbix-agent2 | Notes |
+|------|------|---------------|-------|
+| database-host | PostgreSQL (LXC) | ✅ | Zabbix DB host |
+| monitoring-host | Zabbix server (LXC) | ✅ | Zabbix UI + agent |
+| proxy-host | nginx reverse proxy (LXC) | ✅ | HTTPS termination |
+| app-server | HomePilot v2 + Docker (VM) | ✅ | Ollama socat bridge |
+| agent-host | n8n agent stack (VM) | ✅ | |
+
+### Key Service Endpoints
+
+- **HP v2 API**: `https://homepilot.example.com/health`
+- **Zabbix web**: `http://monitoring-homepilot.example.com/zabbix/` or `https://homepilot.example.com/zabbix/`
+- **PVE API**: `https://pve.example.local:8006`
+
+### Zabbix Monitoring
+
+Zabbix 7.0 is pre-configured with:
+- 5 agent2 hosts (database, monitoring, proxy, app, agent)
+- PVE hosts monitored via API (HTTP agent template, no agent on bare metal)
+- Docker plugin on all container hosts
+- PostgreSQL and nginx monitoring on relevant hosts
+
+### Known Limitations
+
+- PVE bare-metal hosts may reject SSH — use Proxmox MCP API only
+- Ollama bridge uses socat; SSH tunnel is ephemeral — re-establish after restart
+- Zabbix MCP process needs restart after config changes (no hot-reload)
+
 ## GPU layout
 
 3× RTX 4000 Ada SFF (20GB VRAM each). Qwen3-14B Q8_0 requires ~15GB — runs on GPU 0 (`NVIDIA_VISIBLE_DEVICES=0`). BGE-M3 embeddings run on GPU 1 (`NVIDIA_VISIBLE_DEVICES=1`).
