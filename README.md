@@ -177,26 +177,39 @@ See [`docs/voice-spike.md`](docs/voice-spike.md) — voice interface spike (Whis
 | proxy-host | nginx reverse proxy (LXC) | ✅ | HTTPS termination |
 | app-server | HomePilot v2 + Docker (VM) | ✅ | Ollama socat bridge |
 | agent-host | n8n agent stack (VM) | ✅ | |
+| PVE nodes ×3 | Proxmox VE | ❌ | API-only monitoring (SSH blocked) |
 
 ### Key Service Endpoints
 
-- **HP v2 API**: `https://homepilot.example.com/health`
-- **Zabbix web**: `http://monitoring-homepilot.example.com/zabbix/` or `https://homepilot.example.com/zabbix/`
-- **PVE API**: `https://pve.example.local:8006`
+- **HP v2 API**: `https://<proxy_host>/health` or `http://<core_host>:8000/`
+- **Zabbix web**: `http://<monitor_host>/zabbix/` or `https://<proxy_host>/zabbix/`
+- **Zabbix API**: `http://<monitor_host>/zabbix/api_jsonrpc.php`
+- **PVE API**: `https://<pve_host>:8006`
+- **Ollama**: `http://<core_host>:11435/api/embeddings` (socat bridge)
 
 ### Zabbix Monitoring
 
 Zabbix 7.0 is pre-configured with:
-- 5 agent2 hosts (database, monitoring, proxy, app, agent)
-- PVE hosts monitored via API (HTTP agent template, no agent on bare metal)
+- 5 agent2 hosts (database-host, monitoring-host, proxy-host, app-server, agent-host)
+- 3 PVE hosts monitored via API (HTTP agent template)
 - Docker plugin on all container hosts
-- PostgreSQL and nginx monitoring on relevant hosts
+- PostgreSQL monitoring on database-host
+- Nginx monitoring on proxy-host
+
+### Ollama Embedding Bridge
+
+The embedding service is accessible via:
+- `HP_EMBEDDING_SERVICE_URL=http://host.docker.internal:11435/api/embeddings`
+- `HP_EMBEDDING_MODEL=nomic-embed-text`
+
+The bridge uses socat on app-server (port 11435 → localhost:11434) + an SSH reverse tunnel to the cloud Ollama instance.
 
 ### Known Limitations
 
-- PVE bare-metal hosts may reject SSH — use Proxmox MCP API only
-- Ollama bridge uses socat; SSH tunnel is ephemeral — re-establish after restart
+- PVE bare-metal hosts reject SSH — use Proxmox MCP API only
+- Ollama SSH tunnel is ephemeral — re-establish after workspace restart
 - Zabbix MCP process needs restart after config changes (no hot-reload)
+- agent-host VM storage at ~90% (thin provisioning, not critical but monitor)
 
 ## Screenshots
 

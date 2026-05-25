@@ -49,18 +49,42 @@ case "$SEVERITY" in
     *)             ICON="⚪" ;;
 esac
 
-BODY="${ICON} **[${SEVERITY}] ${SUBJECT}**\n\n${MESSAGE}"
+MD_BODY="${ICON} **[${SEVERITY}] ${SUBJECT}**\n\n${MESSAGE}"
 if [[ -n "$ZABBIX_URL" ]]; then
-    BODY="${BODY}\n\n[View in Zabbix](${ZABBIX_URL})"
+    MD_BODY="${MD_BODY}\n\n[View in Zabbix](${ZABBIX_URL})"
 fi
+
+# Convert markdown to HTML for formatted_body
+HTML_BODY=$(printf '%s' "$MD_BODY" | python3 -c '
+import html, re, sys
+
+text = sys.stdin.read()
+
+out = text
+out = re.sub(r"```(\w*)\n(.*?)\n```", lambda m: "<pre><code>" + html.escape(m.group(2)) + "</code></pre>", out, flags=re.DOTALL)
+out = re.sub(r"`([^`]+)`", r"<code>\1</code>", out)
+out = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", out)
+out = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<em>\1</em>", out)
+out = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"<a href=\"\2\">\1</a>", out)
+out = re.sub(r"^### (.+)$", r"<h3>\1</h3>", out, flags=re.MULTILINE)
+out = re.sub(r"^## (.+)$", r"<h2>\1</h2>", out, flags=re.MULTILINE)
+out = re.sub(r"^# (.+)$", r"<h1>\1</h1>", out, flags=re.MULTILINE)
+out = out.replace("\n", "<br>\n")
+print(out)
+')
+
+# Strip markdown for plain-text body
+PLAIN_BODY=$(printf '%s' "$MD_BODY" | sed 's/\*\*//g; s/\*//g; s/`//g; s/\[([^]]*)]([^)]*)/\1/g' | sed 's/```//g')
 
 TXN_ID="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 
 URL="${SERVER}/_matrix/client/v3/rooms/${ROOM_ID}/send/m.room.message/${TXN_ID}"
 
-# Build JSON payload safely: escape special chars for JSON string
-ESCAPED_BODY=$(printf '%s' "$BODY" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\r/\\r/g' | tr '\n' ' ')
-PAYLOAD=$(printf '{"msgtype":"m.text","body":"%s"}' "$ESCAPED_BODY")
+# Build JSON payload with both plain body and formatted HTML body
+ESCAPED_PLAIN=$(printf '%s' "$PLAIN_BODY" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\r/\\r/g' | tr '\n' ' ')
+ESCAPED_HTML=$(printf '%s' "$HTML_BODY" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\r/\\r/g' | tr '\n' ' ')
+
+PAYLOAD=$(printf '{"msgtype":"m.notice","body":"%s","format":"org.matrix.custom.html","formatted_body":"%s"}' "$ESCAPED_PLAIN" "$ESCAPED_HTML")
 
 HTTP_CODE=$(wget -qO- --server-response --header="Content-Type: application/json" \
     --header="Authorization: Bearer ${TOKEN}" \

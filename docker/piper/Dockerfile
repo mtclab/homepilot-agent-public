@@ -1,4 +1,5 @@
-FROM rhasspy/wyoming-piper:latest
+# Pin to v2.4.0 — :latest fails on x86_64 with numpy arch mismatch (#75)
+FROM rhasspy/wyoming-piper:v2.4.0
 
 RUN .venv/bin/pip3 install --no-cache-dir 'wyoming[http]'
 

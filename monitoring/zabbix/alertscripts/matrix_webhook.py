@@ -15,11 +15,58 @@ Zabbix passes these parameters:
   ZABBIX_URL     — Link to the event in Zabbix UI (optional)
 """
 
+import html
 import json
 import os
+import re
 import sys
 import urllib.request
 import urllib.error
+import uuid
+
+
+def markdown_to_html(text: str) -> str:
+    out = text
+
+    # Fenced code blocks (```...```)
+    out = re.sub(
+        r"```(\w*)\n(.*?)\n```",
+        lambda m: f'<pre><code class="language-{m.group(1)}">{html.escape(m.group(2))}</code></pre>',
+        out,
+        flags=re.DOTALL,
+    )
+
+    # Inline code (`...`)
+    out = re.sub(r"`([^`]+)`", r"<code>\1</code>", out)
+
+    # Bold (**...**)
+    out = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", out)
+
+    # Italic (*...*)
+    out = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<em>\1</em>", out)
+
+    # Links [text](url)
+    out = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', out)
+
+    # Headers (# ## ###)
+    out = re.sub(r"^### (.+)$", r"<h3>\1</h3>", out, flags=re.MULTILINE)
+    out = re.sub(r"^## (.+)$", r"<h2>\1</h2>", out, flags=re.MULTILINE)
+    out = re.sub(r"^# (.+)$", r"<h1>\1</h1>", out, flags=re.MULTILINE)
+
+    # Line breaks → <br>
+    out = out.replace("\n", "<br>\n")
+
+    return out
+
+
+def strip_markdown(text: str) -> str:
+    """Strip Markdown formatting to produce clean plain text."""
+    out = text
+    out = re.sub(r"```[\s\S]*?```", lambda m: m.group(0).strip("`").strip(), out)
+    out = re.sub(r"`([^`]+)`", r"\1", out)
+    out = re.sub(r"\*\*(.+?)\*\*", r"\1", out)
+    out = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"\1", out)
+    return out
 
 
 def send_matrix_notification(subject: str, message: str, zabbix_url: str = "") -> None:
@@ -42,14 +89,19 @@ def send_matrix_notification(subject: str, message: str, zabbix_url: str = "") -
 
     icon = {"DISASTER": "🔴", "HIGH": "🟠", "AVERAGE": "🟡", "WARNING": "🟡", "INFORMATION": "🔵"}.get(severity, "⚪")
 
-    body = f"{icon} **[{severity}] {subject}**\n\n{message}"
+    md_body = f"{icon} **[{severity}] {subject}**\n\n{message}"
     if zabbix_url:
-        body += f"\n\n[View in Zabbix]({zabbix_url})"
+        md_body += f"\n\n[View in Zabbix]({zabbix_url})"
+
+    plain_body = strip_markdown(md_body)
+    html_body = markdown_to_html(md_body)
 
     url = f"{server}/_matrix/client/v3/rooms/{room_id}/send/m.room.message"
     payload = {
-        "msgtype": "m.text",
-        "body": body,
+        "msgtype": "m.notice",
+        "body": plain_body,
+        "format": "org.matrix.custom.html",
+        "formatted_body": html_body,
     }
 
     data = json.dumps(payload).encode("utf-8")
@@ -63,9 +115,8 @@ def send_matrix_notification(subject: str, message: str, zabbix_url: str = "") -
         method="PUT",
     )
 
-    # Add transaction ID to prevent duplicates
-    import uuid
-    req.full_url = f"{url}/{uuid.uuid4().hex}"
+    txn_id = uuid.uuid4().hex
+    req.full_url = f"{url}/{txn_id}"
 
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
