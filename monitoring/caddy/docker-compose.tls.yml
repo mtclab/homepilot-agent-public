@@ -23,9 +23,9 @@ services:
       - svc-net
       - monitoring-net
     environment:
-      DOMAIN: ${DOMAIN:-homepilot.example.com}
-      ZABBIX_DOMAIN: ${ZABBIX_DOMAIN:-zabbix.homepilot.example.com}
-      N8N_DOMAIN: ${N8N_DOMAIN:-n8n.homepilot.example.com}
+      DOMAIN: ${DOMAIN:-hp.local}
+      ZABBIX_DOMAIN: ${ZABBIX_DOMAIN:-zabbix.hp.local}
+      N8N_DOMAIN: ${N8N_DOMAIN:-n8n.hp.local}
     healthcheck:
       test: ["CMD-SHELL", "caddy validate --config /etc/caddy/Caddyfile || exit 1"]
       interval: 60s

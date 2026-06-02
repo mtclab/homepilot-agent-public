@@ -6,7 +6,7 @@ x-n8n-common: &n8n-common
   environment:
     N8N_HOST: ${N8N_HOST:-localhost}
     WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678/}
-    GENERIC_TIMEZONE: ${TZ:-Etc/UTC}
+    GENERIC_TIMEZONE: ${TZ:-Europe/Helsinki}
     N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-}
     N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_encryption_key
     HP_MCP_URL: ${HP_MCP_URL}

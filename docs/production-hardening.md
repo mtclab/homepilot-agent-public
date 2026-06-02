@@ -50,8 +50,8 @@ apt update && apt install -y zabbix-agent2
 # 2. Configure agent
 cat > /etc/zabbix/zabbix_agent2.d/homepilot.conf <<'EOF'
 # HomePilot Zabbix Agent2 Configuration
-Server=homepilot.example.com
-ServerActive=homepilot.example.com:10051
+Server=your-server.local
+ServerActive=your-server.local:10051
 Hostname=proxmox-ve
 
 # TLS (PSK)
@@ -150,8 +150,8 @@ postfix:
   image: mwader/postfix-relay
   container_name: postfix-relay
   environment:
-    POSTFIX_MYHOSTNAME: zabbix.example.com
-    POSTFIX_MYDOMAIN: homepilot.example.com
+    POSTFIX_MYHOSTNAME: zabbix.homepilot.local
+    POSTFIX_MYDOMAIN: homepilot.local
     POSTFIX_RELAYHOST: "[smtp.gmail.com]:587"
     POSTFIX_SASL_USER: "${SMTP_USER}"
     POSTFIX_SASL_PASSWORD: "${SMTP_PASS}"
@@ -171,8 +171,8 @@ postfix:
 # Or via API (after setting SMTP_PASSWORD secret):
 # Update media type ID 1 with:
 # - SMTP server: postfix-relay (docker network) or smtp.gmail.com:587
-# - SMTP helo: zabbix.example.com
-# - SMTP email: zabbix@homepilot.example.com
+# - SMTP helo: zabbix.homepilot.local
+# - SMTP email: zabbix@homepilot.local
 # - Security: STARTTLS
 # - Authentication: Username/password
 # - Username: ${SMTP_USER}
@@ -229,7 +229,7 @@ For production, configure **both** Matrix webhook AND email media types:
 - [ ] Add user media (email address) to Zabbix admin user
 
 ### TLS Reverse Proxy
-- [ ] Run `monitoring/caddy/scripts/generate-self-signed-cert.sh homepilot.example.com`
+- [ ] Run `monitoring/caddy/scripts/generate-self-signed-cert.sh hp.local`
 - [ ] Deploy Caddy: `docker compose -f docker-compose.yml -f docker-compose.monitoring.yml -f monitoring/caddy/docker-compose.tls.yml up -d`
 - [ ] For production: set DNS records, update Caddyfile domains, remove static cert paths
 
