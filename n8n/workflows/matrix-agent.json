@@ -27,7 +27,7 @@
           "conditions": [
             {
               "id": "not-own-msg",
-              "leftValue": "={{ $json.body.sender !== 'hp-integrator' }}",
+              "leftValue": "={{ $json.body.sender !== 'bot-username' }}",
               "rightValue": "true",
               "operator": {
                 "type": "boolean",

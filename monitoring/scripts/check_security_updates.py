@@ -34,7 +34,7 @@ Environment (PVE direct — default):
     PVE_TOKEN_SECRET — PVE API token secret
 
 Environment (HP MCP backend):
-    HP_API_URL     — HomePilot REST API base URL (default: http://your-server.local:8000)
+    HP_API_URL     — HomePilot REST API base URL (default: http://homepilot.example.com:8000)
     HP_API_TOKEN   — Bearer token for HomePilot MCP API
 """
 
@@ -139,7 +139,7 @@ def pve_get_changelog(node: str, pkg_name: str, version: str | None, host: str, 
 # ── HP MCP API Backend ──────────────────────────────────────────────
 
 def get_hp_config() -> tuple[str, str]:
-    url = os.environ.get("HP_API_URL", "http://your-server.local:8000").rstrip("/")
+    url = os.environ.get("HP_API_URL", "http://homepilot.example.com:8000").rstrip("/")
     token = os.environ.get("HP_API_TOKEN", "")
     if not token:
         print("ERROR: HP_API_TOKEN not set", file=sys.stderr)

@@ -16,7 +16,7 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get install -y shellcheck
       - name: Run shellcheck
-        run: shellcheck -S warning scripts/download-model.sh scripts/import-workflows.sh
+        run: shellcheck -S warning scripts/import-workflows.sh
 
   validate-json:
     name: JSON syntax
@@ -48,11 +48,11 @@ jobs:
       - name: Create dummy .env
         run: |
           sed \
-            -e 's|<homelab-ip>|10.0.0.1|g' \
+            -e 's|<homelab-ip>|192.0.2.1|g' \
             -e 's|<read-only token>|dummy-ro|g' \
             -e 's|<read-write token>|dummy-rw|g' \
-            -e 's|http://<n8n-lan-ip>:5678/webhook/artifact-proposed|http://10.0.0.1:5678/webhook/artifact-proposed|g' \
-            -e 's|http://<public-or-lan-ip>:5678/|http://10.0.0.1:5678/|g' \
+            -e 's|http://<n8n-lan-ip>:5678/webhook/artifact-proposed|http://192.0.2.1:5678/webhook/artifact-proposed|g' \
+            -e 's|http://<public-or-lan-ip>:5678/|http://192.0.2.1:5678/|g' \
             -e 's|<32-byte-hex>|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|g' \
             -e 's|<n8n api key>|dummy|g' \
             -e 's|<token from BotFather>|1234567890:dummy|g' \

@@ -23,8 +23,8 @@
 - Tokens inherit their user's perms PLUS their own token-level ACL
 
 ### 4. SSL Certificate Mismatch
-- PVE uses self-signed cert with CN=`pve.example.jotain`
-- Must add to `/etc/hosts`: `pve.example.local pve.example.jotain`
+- PVE uses self-signed cert with CN=`pve.example.com`
+- Must add to `/etc/hosts`: `pve.example.local pve.example.com`
 - Must use `-k`/`--insecure` for curl, or `verify=False`/`CERT_NONE` for Python
 - The Zabbix "Proxmox VE by HTTP" template handles this with `{$PVE.URL.HOST}` macro
 
@@ -78,9 +78,9 @@
 
 | Component | Address | Notes |
 |-----------|---------|-------|
-| Zabbix UI | http://your-server.local:8084 | Admin / (see .env.monitoring) |
-| Proxmox VE | https://pve.example.local:8006 | Node: `pve`, CN: `pve.example.jotain` |
-| Homepilot dev | your-server.local | LXC container on Proxmox |
+| Zabbix UI | http://homepilot.example.com:8084 | Admin / (see .env.monitoring) |
+| Proxmox VE | https://pve.example.local:8006 | Node: `pve`, CN: `pve.example.com` |
+| Homepilot dev | homepilot.example.com | LXC container on Proxmox |
 | Matrix | https://matrix.example.com | Room: `:your-room-id:example.com` |
 
 ## Proxmox API Quick Reference

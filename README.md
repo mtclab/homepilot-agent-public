@@ -8,8 +8,7 @@ HomePilot (IaC engine) runs separately on a Proxmox LXC — this stack connects 
 
 | Service | Image | Internal endpoint | Purpose |
 |---------|-------|-------------------|---------|
-| `llm` | `ghcr.io/ggerganov/llama.cpp:server-cuda` | `http://llm:8080/v1` | Qwen3-14B Q8_0, 1× RTX 4000 Ada SFF |
-| `llm-embed` | `ghcr.io/ggerganov/llama.cpp:server-cuda` | `http://llm-embed:8081/v1` | BGE-M3 embeddings, GPU 1 |
+| _LLM_ | external (any OpenAI-compatible API) | `LLM_BASE_URL` | Chat model — ollama / llama.cpp / vLLM / OpenAI. **Not run by this stack.** |
 | `n8n` | `n8nio/n8n:latest` | `http://n8n:5678` | Workflow engine, personal agent, webhooks |
 | `searxng` | `searxng/searxng:latest` | `http://searxng:8888` | Self-hosted web search |
 | `radicale` | `tomsquest/docker-radicale:latest` | `http://radicale:5232` | CalDAV — homelab maintenance calendar |
@@ -20,8 +19,6 @@ HomePilot (IaC engine) runs separately on a Proxmox LXC — this stack connects 
 
 | Port | Service | Note |
 |------|---------|------|
-| 8080 | `llm` | llama.cpp LLM server |
-| 8081 | `llm-embed` | llama.cpp embedding server |
 | 5678 | `n8n` | Workflow engine |
 | 8888 | `searxng` | Search API |
 | 5232 | `radicale` | CalDAV |
@@ -31,23 +28,21 @@ HomePilot (IaC engine) runs separately on a Proxmox LXC — this stack connects 
 
 ### Compose profiles (optional services)
 
-- `gpu` — `llm` and `llm-embed` (requires NVIDIA runtime)
 - `voice` — `whisper` and `piper`
 
-Default: `docker compose up -d` starts n8n, searxng, radicale only.
-Full stack: `docker compose --profile gpu --profile voice up -d`
+Default: `docker compose up -d` starts n8n, searxng, radicale.
+With voice: `docker compose --profile voice up -d`
+
+The LLM is **not** part of this stack — point the agent at any external
+OpenAI-compatible endpoint via `LLM_BASE_URL` / `LLM_MODEL` (see `.env.example`).
 
 ## First-time setup
 
 ### 1. Install prerequisites
 
-- Docker + Docker Compose with NVIDIA Container Toolkit
-- `wget` or `curl` (for model download)
-
-Verify NVIDIA runtime:
-```bash
-docker run --rm --runtime=nvidia nvidia/cuda:12.0-base nvidia-smi
-```
+- Docker + Docker Compose
+- An OpenAI-compatible LLM endpoint reachable from this host (ollama, llama.cpp,
+  vLLM, LocalAI, OpenAI, …). Note its base URL, model name, and API key.
 
 ### 2. Create `.env`
 
@@ -64,18 +59,16 @@ Secrets (`HP_MCP_TOKEN`, `HP_MCP_TOKEN_RW`, `MATRIX_ACCESS_TOKEN`, `TELEGRAM_BOT
 
 See `.env.example` for full documentation.
 
-### 3. Download the LLM model
+### 3. Verify the LLM endpoint
 
+This stack runs no model. Point it at any OpenAI-compatible endpoint via
+`LLM_BASE_URL`, `LLM_MODEL`, and `LLM_API_KEY` in `.env`. Confirm it answers:
 ```bash
-scripts/download-model.sh
+curl -s "${LLM_BASE_URL}/models" -H "Authorization: Bearer ${LLM_API_KEY}" | jq '.data[].id'
 ```
 
-Downloads `Qwen3-14B-Q8_0.gguf` into `./models/`. Resumes if interrupted. Skips if file already exists.
-
-For the embedding model, download `bge-m3.gguf` into `./models/`:
-```bash
-wget -O models/bge-m3.gguf https://huggingface.co/CompendiumLabs/bge-m3-gguf/resolve/main/bge-m3-Q8_0.gguf
-```
+For a local ollama backend, `ollama pull "$LLM_MODEL"` first, and bind ollama to
+the tailnet/LAN — it has **no auth**, so never expose it publicly.
 
 ### 4. Create Radicale htpasswd
 
@@ -91,20 +84,15 @@ The `radicale/data/` directory is bind-mounted into the container at `/data`. Th
 ### 5. Start the stack
 
 ```bash
-# Core services only (n8n, searxng, radicale):
+# Core services (n8n, searxng, radicale):
 docker compose up -d
-
-# With GPU services:
-docker compose --profile gpu up -d
 
 # With voice services:
 docker compose --profile voice up -d
-
-# Full stack:
-docker compose --profile gpu --profile voice up -d
 ```
 
-The `llm` service takes 1–3 minutes to load the model. `n8n` depends on `llm` being healthy.
+Persistent data is bind-mounted under `./data/` (n8n, radicale, whisper, piper) —
+no named Docker volumes.
 
 ### 6. Configure n8n credentials
 
@@ -113,7 +101,7 @@ Open `http://localhost:5678` and create these credentials:
 | Credential name | Type | Value |
 |-----------------|------|-------|
 | `Telegram Bot` | Telegram API | Bot token from BotFather (`TELEGRAM_BOT_TOKEN`) |
-| `Qwen LLM (llama.cpp)` | OpenAI API | Base URL: `http://llm:8080/v1`, API key: any string |
+| `LLM API` | OpenAI API | Base URL: `LLM_BASE_URL` (e.g. `http://<ollama-host>:11434/v1`), API key: `LLM_API_KEY` |
 | `HomePilot MCP Token (read-only)` | HTTP Bearer Auth | `HP_MCP_TOKEN` from `.env` |
 | `HomePilot MCP Token (read-write)` | HTTP Bearer Auth | `HP_MCP_TOKEN_RW` from `.env` |
 | `Matrix Bot` | HTTP Bearer Auth | `MATRIX_ACCESS_TOKEN` from `.env` |
@@ -151,7 +139,7 @@ In n8n UI, activate each workflow. Start with:
 
 | File | Purpose |
 |------|---------|
-| `n8n/workflows/personal-assistant.json` | Full AI Agent: Telegram → Qwen3-14B + all tools → reply |
+| `n8n/workflows/personal-assistant.json` | Full AI Agent: Telegram → LLM + all tools → reply |
 | `n8n/workflows/artifact-notification.json` | Webhook → format → Matrix + optional Telegram |
 | `n8n/workflows/chat-assistant.json` | Read-only Telegram bot using HomePilot MCP |
 | `n8n/workflows/morning-briefing.json` | Daily 08:00 drift + artifact summary |
@@ -172,11 +160,11 @@ See [`docs/voice-spike.md`](docs/voice-spike.md) — voice interface spike (Whis
 
 | Host | Role | zabbix-agent2 | Notes |
 |------|------|---------------|-------|
-| hp-db | PostgreSQL (LXC) | ✅ | Zabbix DB host |
-| hp-monitor | Zabbix server (LXC) | ✅ | Zabbix UI + agent |
-| hp-proxy | nginx reverse proxy (LXC) | ✅ | HTTPS termination |
-| hp-core | HomePilot v2 + Docker (VM) | ✅ | Ollama socat bridge |
-| hp-agent | n8n agent stack (VM) | ✅ | |
+| database-host | PostgreSQL (LXC) | ✅ | Zabbix DB host |
+| monitoring-host | Zabbix server (LXC) | ✅ | Zabbix UI + agent |
+| proxy-host | nginx reverse proxy (LXC) | ✅ | HTTPS termination |
+| app-server | HomePilot v2 + Docker (VM) | ✅ | Ollama socat bridge |
+| agent-host | n8n agent stack (VM) | ✅ | |
 | PVE nodes ×3 | Proxmox VE | ❌ | API-only monitoring (SSH blocked) |
 
 ### Key Service Endpoints
@@ -190,11 +178,11 @@ See [`docs/voice-spike.md`](docs/voice-spike.md) — voice interface spike (Whis
 ### Zabbix Monitoring
 
 Zabbix 7.0 is pre-configured with:
-- 5 agent2 hosts (hp-db, hp-monitor, hp-proxy, hp-core, hp-agent)
+- 5 agent2 hosts (database-host, monitoring-host, proxy-host, app-server, agent-host)
 - 3 PVE hosts monitored via API (HTTP agent template)
 - Docker plugin on all container hosts
-- PostgreSQL monitoring on hp-db
-- Nginx monitoring on hp-proxy
+- PostgreSQL monitoring on database-host
+- Nginx monitoring on proxy-host
 
 ### Ollama Embedding Bridge
 
@@ -202,14 +190,14 @@ The embedding service is accessible via:
 - `HP_EMBEDDING_SERVICE_URL=http://host.docker.internal:11435/api/embeddings`
 - `HP_EMBEDDING_MODEL=nomic-embed-text`
 
-The bridge uses socat on hp-core (port 11435 → localhost:11434) + an SSH reverse tunnel to the cloud Ollama instance.
+The bridge uses socat on app-server (port 11435 → localhost:11434) + an SSH reverse tunnel to the cloud Ollama instance.
 
 ### Known Limitations
 
 - PVE bare-metal hosts reject SSH — use Proxmox MCP API only
 - Ollama SSH tunnel is ephemeral — re-establish after workspace restart
 - Zabbix MCP process needs restart after config changes (no hot-reload)
-- hp-agent VM storage at ~90% (thin provisioning, not critical but monitor)
+- agent-host VM storage at ~90% (thin provisioning, not critical but monitor)
 
 ## Screenshots
 
@@ -225,8 +213,10 @@ The bridge uses socat on hp-core (port 11435 → localhost:11434) + an SSH rever
 |-----------|---------------|
 | ![Zabbix Dashboard](docs/images/zabbix-dashboard-final.png) | ![Zabbix Hosts](monitoring/zabbix/images/zabbix-installed.png) |
 
-## GPU layout
+## LLM backend
 
-3× RTX 4000 Ada SFF (20GB VRAM each). Qwen3-14B Q8_0 requires ~15GB — runs on GPU 0 (`NVIDIA_VISIBLE_DEVICES=0`). BGE-M3 embeddings run on GPU 1 (`NVIDIA_VISIBLE_DEVICES=1`).
-
-To use a different GPU, set `NVIDIA_VISIBLE_DEVICES` in `.env`.
+Inference is external — the agent talks to any OpenAI-compatible endpoint
+(`LLM_BASE_URL` + `LLM_MODEL`, configured in the n8n "LLM API" credential).
+Run the model wherever you like: a GPU box with ollama / llama.cpp / vLLM, or a
+hosted API. To self-host on demand, keep the endpoint on the tailnet and wake it
+with Wake-on-LAN when the agent needs it.

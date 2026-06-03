@@ -55,7 +55,7 @@
       "credentials": {
         "openAiApi": {
           "id": "CONFIGURE_ME",
-          "name": "Qwen LLM (llama.cpp)"
+          "name": "LLM API"
         }
       }
     },

@@ -100,7 +100,7 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/zabbix_pg_password
       POSTGRES_DB: ${ZBX_PG_DB:-zabbix}
       ZBX_SERVER_HOST: zabbix-server
-      PHP_TZ: ${TZ:-Europe/Helsinki}
+      PHP_TZ: ${TZ:-Etc/UTC}
     depends_on:
       zabbix-server:
         condition: service_healthy

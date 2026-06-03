@@ -6,7 +6,7 @@ x-n8n-common: &n8n-common
   environment:
     N8N_HOST: ${N8N_HOST:-localhost}
     WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678/}
-    GENERIC_TIMEZONE: ${TZ:-Europe/Helsinki}
+    GENERIC_TIMEZONE: ${TZ:-Etc/UTC}
     N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-}
     N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_encryption_key
     HP_MCP_URL: ${HP_MCP_URL}
@@ -18,7 +18,7 @@ x-n8n-common: &n8n-common
     MATRIX_ROOM_ID: ${MATRIX_ROOM_ID:-}
     TELEGRAM_ALLOWED_USER_ID: ${TELEGRAM_ALLOWED_USER_ID:-}
   volumes:
-    - n8n_data:/home/node/.n8n
+    - ./data/n8n:/home/node/.n8n
   secrets:
     - n8n_encryption_key
     - hp_mcp_token
@@ -32,54 +32,10 @@ x-n8n-common: &n8n-common
   restart: unless-stopped
 
 services:
-  llm:
-    profiles: ["gpu"]
-    image: ghcr.io/ggerganov/llama.cpp:server-cuda
-    runtime: nvidia
-    environment:
-      NVIDIA_VISIBLE_DEVICES: "0"
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility
-      LLAMA_ARG_MODEL: /models/${GGUF_MODEL_FILENAME:-Qwen3-14B-Q8_0.gguf}
-      LLAMA_ARG_HOST: "0.0.0.0"
-      LLAMA_ARG_PORT: "8080"
-      LLAMA_ARG_GPU_LAYERS: "99"
-      LLAMA_ARG_CTX_SIZE: ${LLAMA_ARG_CTX_SIZE:-32768}
-      LLAMA_ARG_PARALLEL: ${LLAMA_ARG_PARALLEL:-4}
-    volumes:
-      - ./models:/models:ro
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
-    restart: unless-stopped
-    networks:
-      - agent-net
-
-  llm-embed:
-    profiles: ["gpu"]
-    image: ghcr.io/ggerganov/llama.cpp:server-cuda
-    runtime: nvidia
-    environment:
-      LLAMA_ARG_MODEL: /models/bge-m3.gguf
-      LLAMA_ARG_HOST: "0.0.0.0"
-      LLAMA_ARG_PORT: "8081"
-      NVIDIA_VISIBLE_DEVICES: "1"
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility
-    volumes:
-      - ./models:/models:ro
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8081/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
-    restart: unless-stopped
-    networks:
-      - agent-net
-      - svc-net
-
+  # LLM inference is external: the agent connects to any OpenAI-compatible
+  # endpoint (ollama, llama.cpp, vLLM, LocalAI, OpenAI, …). Configure it via
+  # the n8n "LLM API" credential (Base URL = LLM_BASE_URL) and LLM_MODEL in .env.
+  # No local inference service runs in this stack.
   n8n:
     <<: *n8n-common
     depends_on:
@@ -88,7 +44,6 @@ services:
       radicale:
         condition: service_healthy
     networks:
-      - agent-net
       - svc-net
 
   n8n-debug:
@@ -102,7 +57,6 @@ services:
       radicale:
         condition: service_healthy
     networks:
-      - agent-net
       - svc-net
 
   searxng:
@@ -130,7 +84,7 @@ services:
     image: tomsquest/docker-radicale:3.3.2.0
     volumes:
       - ./radicale/config:/config/config:ro
-      - radicale_data:/data
+      - ./data/radicale:/data
     secrets:
       - radicale_htpasswd
     healthcheck:
@@ -150,7 +104,7 @@ services:
       - WHISPER__COMPUTE_TYPE=int8
       - WHISPER__DEVICE=cpu
     volumes:
-      - whisper-models:/root/.config/faster-whisper-server
+      - ./data/whisper:/root/.config/faster-whisper-server
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
       interval: 30s
@@ -171,7 +125,7 @@ services:
       - PIPER_NOISE_SCALE=0.667
       - PIPER_NOISE_W=0.333
     volumes:
-      - piper-voices:/data
+      - ./data/piper:/data
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/')\" || exit 1"]
       interval: 30s
@@ -192,7 +146,7 @@ services:
       - WHISPER__COMPUTE_TYPE=int8
       - WHISPER__DEVICE=cpu
     volumes:
-      - whisper-models:/root/.config/faster-whisper-server
+      - ./data/whisper:/root/.config/faster-whisper-server
     ports:
       - "8082:8000"
     restart: unless-stopped
@@ -210,7 +164,7 @@ services:
       - PIPER_NOISE_SCALE=0.667
       - PIPER_NOISE_W=0.333
     volumes:
-      - piper-voices:/data
+      - ./data/piper:/data
     ports:
       - "8083:5000"
     restart: unless-stopped
@@ -218,17 +172,8 @@ services:
       - svc-net
 
 networks:
-  agent-net:
-    driver: bridge
   svc-net:
     driver: bridge
-
-volumes:
-  llm-models:
-  n8n_data:
-  radicale_data:
-  whisper-models:
-  piper-voices:
 
 secrets:
   n8n_encryption_key:

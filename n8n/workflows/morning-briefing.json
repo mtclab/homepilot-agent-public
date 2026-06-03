@@ -232,7 +232,7 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Europe/Helsinki"
+    "timezone": "Etc/UTC"
   },
   "versionId": "mb000000-0000-0000-0000-000000000004",
   "id": "morning-briefing",

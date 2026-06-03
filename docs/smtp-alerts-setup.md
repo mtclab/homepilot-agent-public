@@ -43,7 +43,7 @@
 ## Quick Setup (Gmail)
 ```bash
 # Via Zabbix API — replace placeholders with your credentials
-ZABBIX_URL="http://your-server.local:8084"
+ZABBIX_URL="http://homepilot.example.com:8084"
 ZABBIX_AUTH=$(curl -s -X POST "$ZABBIX_URL/api_jsonrpc.php" \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"user.login","params":{"user":"Admin","password":"<ZABBIX_ADMIN_PASSWORD>"},"id":1}' | python3 -c "import json,sys; print(json.load(sys.stdin)['result'])")

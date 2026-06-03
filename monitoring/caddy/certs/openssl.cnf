@@ -4,7 +4,7 @@ x509_extensions = v3_req
 prompt = no
 
 [req_dn]
-CN = hp.local
+CN = homepilot.example.com
 
 [v3_req]
 subjectAltName = @alt_names
@@ -12,9 +12,9 @@ basicConstraints = CA:FALSE
 keyUsage = digitalSignature,keyEncipherment
 
 [alt_names]
-DNS.1 = hp.local
-DNS.2 = zabbix.hp.local
-DNS.3 = n8n.hp.local
+DNS.1 = homepilot.example.com
+DNS.2 = zabbix.homepilot.example.com
+DNS.3 = n8n.homepilot.example.com
 DNS.4 = localhost
-IP.1 = your-server.local
+IP.1 = homepilot.example.com
 IP.2 = 127.0.0.1

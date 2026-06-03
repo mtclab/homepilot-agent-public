@@ -215,7 +215,7 @@ def add_admin_media(api: ZabbixAPI, mt_id: str):
     print("Adding Matrix media to Admin user...")
     api.api("user.update", {
         "userid": "1",
-        "medias": [{"mediatypeid": mt_id, "sendto": "homepilot-alerts", "active": "0", "severity": "63", "period": "1-7,00:00-24:00"}]
+        "medias": [{"mediatypeid": mt_id, "sendto": "CHANGE_ME_matrix_room_alias", "active": "0", "severity": "63", "period": "1-7,00:00-24:00"}]
     })
     print("  Done.")
 

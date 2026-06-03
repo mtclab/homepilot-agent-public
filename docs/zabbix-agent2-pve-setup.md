@@ -2,7 +2,7 @@
 
 ## Prerequisites
 - PVE node console access (required — API `/nodes/{node}/execute` needs root@pam user, not token auth)
-- Zabbix server already running at your-server.local:10051
+- Zabbix server already running at homepilot.example.com:10051
 
 ## Installation (on PVE node)
 
@@ -15,8 +15,8 @@ apt-get update && apt-get install -y zabbix-agent2
 
 # Configure agent
 cat > /etc/zabbix/zabbix_agent2.conf << 'CONF'
-Server=your-server.local
-ServerActive=your-server.local
+Server=homepilot.example.com
+ServerActive=homepilot.example.com
 Hostname=proxmox-ve
 ListenPort=10050
 TLSConnect=psk

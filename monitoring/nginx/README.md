@@ -39,8 +39,8 @@ docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d caddy
 ### Let's Encrypt (Production)
 
 ```bash
-# 1. Set DNS A records for your domain pointing to your-server.local
-# 2. Edit monitoring/caddy/Caddyfile — replace hp.local with your domain
+# 1. Set DNS A records for your domain pointing to homepilot.example.com
+# 2. Edit monitoring/caddy/Caddyfile — replace homepilot.example.com with your domain
 # 3. Set env vars:
 export DOMAIN=homepilot.example.com
 export ZABBIX_DOMAIN=zabbix.example.com

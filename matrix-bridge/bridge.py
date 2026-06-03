@@ -39,7 +39,7 @@ MATRIX_ROOM_ID = os.environ.get(
     "MATRIX_ROOM_ID",
     ":your-room-id:example.com",
 )
-MATRIX_BOT_USER = os.environ.get("MATRIX_BOT_USER", "hp-integrator")
+MATRIX_BOT_USER = os.environ.get("MATRIX_BOT_USER", "bot-username")
 N8N_WEBHOOK_URL = os.environ.get(
     "N8N_WEBHOOK_URL", "http://n8n:5678/webhook/matrix-incoming"
 )

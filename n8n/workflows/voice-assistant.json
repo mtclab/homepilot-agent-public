@@ -52,14 +52,14 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://llm:8080/v1/chat/completions",
+        "url": "={{ $env.LLM_BASE_URL }}/chat/completions",
         "sendBody": true,
         "contentType": "json",
         "bodyParameters": {
           "parameters": [
             {
               "name": "model",
-              "value": "Qwen3-14B"
+              "value": "={{ $env.LLM_MODEL }}"
             },
             {
               "name": "messages",

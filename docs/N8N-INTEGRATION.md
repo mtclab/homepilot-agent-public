@@ -55,12 +55,15 @@ n8n workflow definitions live in n8n's own database (not this repo). JSON export
 | `HP_MCP_URL` | n8n workflows | HomePilot MCP HTTP endpoint, e.g. `http://<proxmox-lxc>:8000/mcp` |
 | `HP_MCP_TOKEN` | n8n workflows | Read-only MCP bearer token |
 | `HP_MCP_TOKEN_RW` | n8n AI Agent | Read-write MCP bearer token (propose + record only) |
+| `LLM_BASE_URL` | n8n workflows + "LLM API" credential | Base URL of the external OpenAI-compatible endpoint (must end in `/v1`), e.g. `http://<ollama-host>:11434/v1` |
+| `LLM_MODEL` | n8n workflows | Model name/tag served by the endpoint, e.g. `qwen3:14b` |
+| `LLM_API_KEY` | "LLM API" credential | API key for the endpoint; any non-empty placeholder for keyless local servers |
 
 ## Internal service endpoints
 
 | Service | Internal hostname | Port | Purpose |
 |---------|------------------|------|---------|
-| llm | `http://llm:8080/v1` | 8080 | OpenAI-compat LLM API (Qwen3-14B) |
+| llm | external — `LLM_BASE_URL` | — | OpenAI-compatible chat API (any provider; set in n8n "LLM API" credential) |
 | searxng | `http://searxng:8888` | 8888 | Web search JSON API |
 | radicale | `http://radicale:5232` | 5232 | CalDAV calendar |
 | n8n | `http://n8n:5678` | 5678 | Workflow engine + webhook receiver |
